@@ -35,29 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const successSummaryList = document.getElementById('success-summary-list');
   const errorDetails = document.getElementById('error-details');
   
-  // Thanos snap sound effect - Updated to use a more compatible audio format
-  let thanosSnapSound = null;
-  try {
-    // First try to load local audio file
-    thanosSnapSound = new Audio('sounds/snap.mp3');
-    thanosSnapSound.onerror = () => {
-      // If local file fails, try remote file
-      thanosSnapSound = new Audio('https://soundbible.com/mp3/Snap-SoundBible.com-644291981.mp3');
-      thanosSnapSound.onerror = () => {
-        thanosSnapSound = null;
-        console.log('Could not load sound effect, using fallback');
-      };
-    };
-  } catch (e) {
-    console.log('Could not create Audio element');
-  }
-  
-  // Disable sound on iOS until user interaction
-  let audioEnabled = false;
-  document.body.addEventListener('click', () => {
-    audioEnabled = true;
-  }, { once: true });
-  
   // App State
   let repoInfo = {
     owner: '',
@@ -340,16 +317,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // GitHub API functions
   async function startRepositoryReset() {
     try {
-      // Play sound effect if enabled
-      if (audioEnabled) {
-        try {
-          thanosSnapSound.volume = 0.5; // Fixed: Changed from 5 to 0.5 for appropriate volume level
-          thanosSnapSound.play();
-        } catch (e) {
-          console.log('Could not play sound effect');
-        }
-      }
-      
       secondConfirmOverlay.classList.add('hidden');
       firstConfirm.classList.add('hidden');
       progressContainer.classList.remove('hidden');
@@ -451,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.message || `HTTP Error: ${response.status}`;
-        throw new Error(`GitHub API Error: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
       
       if (response.status === 204) {
@@ -461,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return await response.json();
     } catch (error) {
       console.error(`API Error (${url}):`, error);
-      throw new Error(`GitHub API Error: ${error.message}`);
+      throw error;
     }
   }
   
@@ -671,28 +638,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const reference = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/ref/heads/${defaultBranch}`
       );
-      
-      if (!reference || !reference.object || !reference.object.sha) {
-        throw new Error('Could not get repository reference');
-      }
-      
       const currentCommitSha = reference.object.sha;
       updateProgress(60, 'Got current commit reference...');
       
-      // Create empty tree with explicit parameters
+      // Get current tree
+      const currentCommit = await makeGitHubRequest(
+        `/repos/${repoInfo.owner}/${repoInfo.repo}/git/commits/${currentCommitSha}`
+      );
+      const currentTreeSha = currentCommit.tree.sha;
+      updateProgress(65, 'Analyzed current repository tree...');
+      
+      // Create empty tree
       logOperation('Creating empty tree...', 'normal');
       const emptyTree = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/trees`,
         'POST',
-        {
-          tree: [],
-          base_tree: null // Explicitly set base_tree to null
-        }
+        { tree: [] }
       );
-      
-      if (!emptyTree || !emptyTree.sha) {
-        throw new Error('Failed to create empty tree');
-      }
+      updateProgress(70, 'Created empty tree...');
       
       // Create commit with empty tree
       logOperation('Creating commit with empty tree...', 'normal');
@@ -779,7 +742,14 @@ Happy coding! 💻
   }
   
   function typeWriter(element, index, speed) {
-    const text = element.dataset.text || element.textContent || '';
+    const text = element.dataset.text;
+    
+    // Check if text is defined to avoid null error
+    if (!text) {
+      console.error('No text found for typewriter effect');
+      element.textContent = element.textContent || '';
+      return;
+    }
     
     if (index < text.length) {
       element.textContent = text.substring(0, index + 1);
