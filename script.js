@@ -682,21 +682,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentCommitSha = reference.object.sha;
       updateProgress(60, 'Got current commit reference...');
       
-      // Get current tree
-      const currentCommit = await makeGitHubRequest(
-        `/repos/${repoInfo.owner}/${repoInfo.repo}/git/commits/${currentCommitSha}`
-      );
-      const currentTreeSha = currentCommit.tree.sha;
-      updateProgress(65, 'Analyzed current repository tree...');
-      
-      // Create empty tree with explicit base tree
+      // Create empty tree
       logOperation('Creating empty tree...', 'normal');
       const emptyTree = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/trees`,
         'POST',
         {
-          base_tree: null, // Explicitly set no base tree
-          tree: [] // Empty tree
+          tree: [] // Empty tree without any base tree reference
         }
       );
       updateProgress(70, 'Created empty tree...');
