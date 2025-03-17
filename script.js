@@ -35,6 +35,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const successSummaryList = document.getElementById('success-summary-list');
   const errorDetails = document.getElementById('error-details');
   
+  // Sound Effects
+  let snapSound = new Audio();
+  let soundLoaded = false;
+  
+  // Try to load sound from multiple sources
+  const loadSound = async () => {
+    const soundUrls = [
+      'sounds/snap.mp3',
+      'https://soundbible.com/mp3/Snap-SoundBible.com-644291981.mp3',
+      'https://www.soundjay.com/misc/sounds/snap-1.mp3'
+    ];
+    
+    for (const url of soundUrls) {
+      try {
+        snapSound = new Audio(url);
+        await new Promise((resolve, reject) => {
+          snapSound.addEventListener('canplaythrough', resolve);
+          snapSound.addEventListener('error', reject);
+        });
+        soundLoaded = true;
+        break;
+      } catch (error) {
+        console.log(`Could not load sound from ${url}`);
+      }
+    }
+    
+    if (!soundLoaded) {
+      console.log('Could not load sound effect, using fallback');
+    }
+  };
+  
+  loadSound();
+  
+  // Play sound with error handling
+  const playSnapSound = async () => {
+    if (!soundLoaded) return;
+    try {
+      await snapSound.play();
+    } catch (error) {
+      console.log('Could not play sound effect');
+    }
+  };
+
   // App State
   let repoInfo = {
     owner: '',
@@ -402,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const options = {
       method,
       headers: {
-        'Authorization': `token ${repoInfo.token}`, // Changed back to original format for fine-grained tokens
+        'Authorization': `token ${repoInfo.token}`,
         'Accept': 'application/vnd.github.v3+json',
         'Content-Type': 'application/json'
       }
@@ -414,18 +457,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       const response = await fetch(url, options);
+      const responseData = response.status !== 204 ? await response.json().catch(() => ({})) : null;
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || `HTTP Error: ${response.status}`;
-        throw new Error(errorMessage);
+        const error = new Error(`GitHub API Error: ${responseData.message || response.statusText}`);
+        error.response = responseData;
+        error.status = response.status;
+        throw error;
       }
       
-      if (response.status === 204) {
-        return null;
-      }
-      
-      return await response.json();
+      return responseData;
     } catch (error) {
       console.error(`API Error (${url}):`, error);
       throw error;
@@ -648,14 +689,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentTreeSha = currentCommit.tree.sha;
       updateProgress(65, 'Analyzed current repository tree...');
       
-      // Create empty tree
+      // Create empty tree with explicit base tree
       logOperation('Creating empty tree...', 'normal');
       const emptyTree = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/trees`,
         'POST',
-        { tree: [] }
+        {
+          base_tree: null, // Explicitly set no base tree
+          tree: [] // Empty tree
+        }
       );
       updateProgress(70, 'Created empty tree...');
+      
+      if (!emptyTree || !emptyTree.sha) {
+        throw new Error('Failed to create empty tree');
+      }
       
       // Create commit with empty tree
       logOperation('Creating commit with empty tree...', 'normal');
@@ -668,6 +716,11 @@ document.addEventListener('DOMContentLoaded', () => {
           parents: [currentCommitSha]
         }
       );
+      
+      if (!newCommit || !newCommit.sha) {
+        throw new Error('Failed to create new commit');
+      }
+      
       updateProgress(80, 'Created commit with empty tree...');
       
       // Update branch reference
@@ -679,11 +732,13 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       updateProgress(90, 'Updated branch reference...');
       
+      await playSnapSound();
       logOperation('✓ All files deleted', 'success');
-      resetStats.filesDeleted = 1; // Just to indicate files were deleted
+      resetStats.filesDeleted = 1;
     } catch (error) {
-      logOperation(`✗ Error deleting files: ${error.message}`, 'error');
-      throw error;
+      const errorMessage = error.response ? `GitHub API Error: ${error.response.message}` : error.message;
+      logOperation(`✗ Error deleting files: ${errorMessage}`, 'error');
+      throw new Error(`Failed to delete files: ${errorMessage}`);
     }
   }
   
