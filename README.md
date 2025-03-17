@@ -1,13 +1,10 @@
 # Thanos 💀 - GitHub Repository Reset Tool
 
-![GitHub Repository Reset Tool](https://img.shields.io/badge/GitHub-Repository%20Reset%20Tool-red)
-![License](https://img.shields.io/badge/license-MIT-blue)
-
-## 🔥 About
-
 Thanos is a powerful web-based tool that lets you completely reset a GitHub repository by removing all files, directories, commit history, issues, pull requests, releases, milestones, and issue labels in one go. The tool allows you to selectively choose which components to delete. Use with extreme caution as the actions performed are irreversible.
 
 > *"I am inevitable"* - Thanos
+
+![image](https://github.com/user-attachments/assets/c6e855eb-1325-494f-b3fa-541c352ae2c0)
 
 ## 💻 Features
 
