@@ -38,11 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Thanos snap sound effect - Updated to use a more compatible audio format
   let thanosSnapSound = null;
   try {
-    thanosSnapSound = new Audio('https://soundbible.com/mp3/Snap-SoundBible.com-644291981.mp3');
-    // Fallback to simple click if external file fails
+    // First try to load local audio file
+    thanosSnapSound = new Audio('sounds/snap.mp3');
     thanosSnapSound.onerror = () => {
-      thanosSnapSound = null;
-      console.log('Could not load sound effect, using fallback');
+      // If local file fails, try remote file
+      thanosSnapSound = new Audio('https://soundbible.com/mp3/Snap-SoundBible.com-644291981.mp3');
+      thanosSnapSound.onerror = () => {
+        thanosSnapSound = null;
+        console.log('Could not load sound effect, using fallback');
+      };
     };
   } catch (e) {
     console.log('Could not create Audio element');
@@ -447,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.message || `HTTP Error: ${response.status}`;
-        throw new Error(errorMessage);
+        throw new Error(`GitHub API Error: ${errorMessage}`);
       }
       
       if (response.status === 204) {
@@ -457,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return await response.json();
     } catch (error) {
       console.error(`API Error (${url}):`, error);
-      throw error;
+      throw new Error(`GitHub API Error: ${error.message}`);
     }
   }
   
@@ -667,24 +671,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const reference = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/ref/heads/${defaultBranch}`
       );
+      
+      if (!reference || !reference.object || !reference.object.sha) {
+        throw new Error('Could not get repository reference');
+      }
+      
       const currentCommitSha = reference.object.sha;
       updateProgress(60, 'Got current commit reference...');
       
-      // Get current tree
-      const currentCommit = await makeGitHubRequest(
-        `/repos/${repoInfo.owner}/${repoInfo.repo}/git/commits/${currentCommitSha}`
-      );
-      const currentTreeSha = currentCommit.tree.sha;
-      updateProgress(65, 'Analyzed current repository tree...');
-      
-      // Create empty tree
+      // Create empty tree with explicit parameters
       logOperation('Creating empty tree...', 'normal');
       const emptyTree = await makeGitHubRequest(
         `/repos/${repoInfo.owner}/${repoInfo.repo}/git/trees`,
         'POST',
-        { tree: [] }
+        {
+          tree: [],
+          base_tree: null // Explicitly set base_tree to null
+        }
       );
-      updateProgress(70, 'Created empty tree...');
+      
+      if (!emptyTree || !emptyTree.sha) {
+        throw new Error('Failed to create empty tree');
+      }
       
       // Create commit with empty tree
       logOperation('Creating commit with empty tree...', 'normal');
@@ -771,14 +779,7 @@ Happy coding! 💻
   }
   
   function typeWriter(element, index, speed) {
-    const text = element.dataset.text;
-    
-    // Check if text is defined to avoid null error
-    if (!text) {
-      console.error('No text found for typewriter effect');
-      element.textContent = element.textContent || '';
-      return;
-    }
+    const text = element.dataset.text || element.textContent || '';
     
     if (index < text.length) {
       element.textContent = text.substring(0, index + 1);

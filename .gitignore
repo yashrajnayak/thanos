@@ -1,1 +1,4 @@
 .DS_Store
+# Keep sounds directory in version control
+!sounds/
+!sounds/snap.mp3
