@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanos - GitHub Repository Reset Tool</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💀</text></svg>">
+    <meta name="theme-color" content="#121212">
+</head>
+<body>
+    <div class="container">
+        <div class="app-header">
+            <h1><i class="fas fa-skull"></i> Thanos <i class="fas fa-skull"></i></h1>
+            <p class="subtitle">The GitHub Repository Reset Tool</p>
+        </div>
+
+        <!-- Initial Form -->
+        <div id="form-container" class="card">
+            <div class="form-group">
+                <label for="repo-url">GitHub Repository URL</label>
+                <input type="text" id="repo-url" placeholder="https://github.com/username/repository">
+                <p class="help-text">Enter the full URL of the repository you want to reset</p>
+            </div>
+            <div class="form-group">
+                <label for="token">GitHub Personal Access Token (Fine-Grained)</label>
+                <input type="password" id="token" placeholder="ghp_...">
+                <p class="help-text">Token needs permissions: repo (full control), delete_repo, issues, workflows</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Select what to delete:</label>
+                <div class="checkbox-container">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="delete-files" checked>
+                        <label for="delete-files"><i class="fas fa-folder"></i> Files and directories</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="delete-issues" checked>
+                        <label for="delete-issues"><i class="fas fa-exclamation-circle"></i> Issues and pull requests</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="delete-releases" checked>
+                        <label for="delete-releases"><i class="fas fa-tag"></i> Releases</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="delete-milestones" checked>
+                        <label for="delete-milestones"><i class="fas fa-flag"></i> Milestones</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="delete-labels" checked>
+                        <label for="delete-labels"><i class="fas fa-tags"></i> Issue labels</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="create-readme" checked>
+                        <label for="create-readme"><i class="fas fa-file-alt"></i> Create README.md after reset</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="submit-btn" class="btn-danger">
+                <i class="fas fa-skull-crossbones"></i> I want to reset this repository
+            </button>
+        </div>
+
+        <!-- First Confirmation -->
+        <div id="first-confirm" class="card hidden">
+            <h2><i class="fas fa-exclamation-triangle"></i> Are you absolutely sure?</h2>
+            <p>This action cannot be undone. The following will be permanently deleted:</p>
+            <ul id="deletion-summary">
+                <!-- Will be filled dynamically -->
+            </ul>
+            <div class="confirm-group">
+                <input type="text" id="confirm-text" placeholder="Type the repository name to confirm">
+                <p class="help-text">Please type the repository name to confirm deletion</p>
+            </div>
+            <div class="button-group">
+                <button id="cancel-btn" class="btn-secondary"><i class="fas fa-times"></i> Cancel</button>
+                <button id="confirm-btn" class="btn-danger" disabled><i class="fas fa-exclamation-circle"></i> I understand the consequences, reset this repository</button>
+            </div>
+        </div>
+
+        <!-- Second Confirmation (Modal) -->
+        <div id="second-confirm-overlay" class="overlay hidden">
+            <div id="second-confirm" class="modal">
+                <h2><i class="fas fa-radiation"></i> Final Warning</h2>
+                <p>You are about to delete selected components from this repository.</p>
+                <p>There is <strong>NO WAY</strong> to recover this data once deleted.</p>
+                <div class="button-group">
+                    <button id="final-cancel-btn" class="btn-secondary"><i class="fas fa-undo"></i> I changed my mind</button>
+                    <button id="final-confirm-btn" class="btn-danger"><i class="fas fa-skull"></i> Yes, reset everything!</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Screen -->
+        <div id="progress-container" class="card hidden">
+            <h2><i class="fas fa-cog fa-spin"></i> Repository Reset in Progress</h2>
+            <div class="progress-wrapper">
+                <div class="progress-bar">
+                    <div id="progress-indicator"></div>
+                </div>
+                <div id="progress-percentage">0%</div>
+            </div>
+            <div id="current-operation">Preparing...</div>
+            <div id="operation-logs" class="logs-container"></div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-container" class="card hidden">
+            <div id="success-result" class="hidden">
+                <h2><i class="fas fa-check-circle success-icon"></i> Repository Reset Complete</h2>
+                <p>The repository has been successfully reset according to your selections.</p>
+                <div class="summary-box">
+                    <h3>Summary:</h3>
+                    <ul id="success-summary-list">
+                        <!-- Will be filled dynamically -->
+                    </ul>
+                </div>
+            </div>
+            <div id="error-result" class="hidden">
+                <h2><i class="fas fa-exclamation-triangle error-icon"></i> Error Occurred</h2>
+                <p>The repository could not be completely reset.</p>
+                <div class="error-box">
+                    <h3>Error Details:</h3>
+                    <pre id="error-details"></pre>
+                </div>
+            </div>
+            <button id="reset-btn" class="btn-primary"><i class="fas fa-redo"></i> Reset Form</button>
+        </div>
+
+        <footer>
+            <p>Use responsibly. Created with <i class="fas fa-heartbeat"></i> by Thanos</p>
+            <p><small>Not affiliated with GitHub or Marvel</small></p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
